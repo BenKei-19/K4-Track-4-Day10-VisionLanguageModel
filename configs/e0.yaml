@@ -1,0 +1,5 @@
+name: E0
+description: Zero-shot, không huấn luyện. Chỉ suy luận bằng model gốc rồi chấm.
+model_id: Qwen/Qwen3-VL-4B-Instruct
+quantization: nf4-4bit      # ViT và lm_head KHÔNG lượng tử hoá
+max_new_tokens: 256

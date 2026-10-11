@@ -1,0 +1,9 @@
+name: E5
+description: (Tuỳ chọn, +điểm) GRPO với reward IoU, khởi tạo từ adapter tốt nhất của E1–E3.
+grpo:
+  num_generations: 4
+  max_completion_length: 128
+  max_steps: 60
+  learning_rate: 5.0e-6
+  beta: 0.0
+reward: "0.2 * valid_json + 0.8 * (tổng IoU các cặp khớp) / max(n_gt, n_pred, 1)"

@@ -1,0 +1,6 @@
+name: E4
+description: Ablation tự chọn. Chọn ĐÚNG MỘT biến để đổi, giữ mọi thứ khác như setup tốt nhất trong E1–E3.
+options:
+  rank: {values: [4, 64], note: "đổi lora.r (đặt alpha = 2*r)"}
+  data_size: {values: [0.1, 1.0], note: "train_fraction; 0.1 = 10% số ảnh train"}
+  coord_scale: {values: [norm1000, pixel], note: "đổi thang toạ độ trong cả nhãn lẫn prompt; chấm bằng --coord tương ứng"}

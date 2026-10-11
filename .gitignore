@@ -1,0 +1,14 @@
+data/
+work/
+.env
+.venv/
+__pycache__/
+*.pyc
+*.safetensors
+*.bin
+*.pt
+*.ckpt
+adapter*/
+.ipynb_checkpoints/
+.pytest_cache/
+.DS_Store
