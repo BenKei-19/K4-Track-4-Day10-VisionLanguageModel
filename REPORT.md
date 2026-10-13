@@ -9,8 +9,8 @@ Họ tên: Hieu Pham
 | E1 | LoRA LLM | 33.030.144 | 6,37 | 39,9 | 0,278 | 0,242–0,317 | 1,26 | 0,149 | 0,207 | 0,553 |
 | E2 | + projector | 142.135.296 | 8,06 | 40,6 | 0,336 | 0,296–0,378 | 1,12 | 0,152 | 0,280 | 0,592 |
 | E3 | + LoRA ViT | 148.426.752 | 8,24 | 48,9 | **0,433** | 0,393–0,480 | 0,83 | 0,278 | 0,365 | 0,688 |
-| E4 | data_size = 0,1 (setup <điền>) | | | | | | | | | |
-| E4 | data_size = 1,0 (= <điền>) | | | | | | | | | |
+| E4 | data_size = 0,1 (setup E3, 142 ảnh) | 148.426.752 | 7,69 | 48,3 | 0,262 | 0,232–0,299 | 1,90 | 0,174 | 0,187 | 0,562 |
+| E4 | data_size = 1,0 (= E3, 1.422 ảnh) | 148.426.752 | 8,24 | 48,9 | 0,433 | 0,393–0,480 | 0,83 | 0,278 | 0,365 | 0,688 |
 
 Mọi lần chạy: Colab T4 16 GB, QLoRA NF4 (ViT và `lm_head` fp16), r = 16, alpha = 32, lr 2e-4 (warmup 5% + cosine), batch 2 × tích luỹ 4, 300 bước, seed 42. Mã: `lab/vlm.py`; lệnh: `lab_day10.ipynb`.
 
@@ -142,8 +142,27 @@ Nhầm lớp thật sự ít: chỉ 27 box khớp vị trí nhưng sai lớp (nh
 6. `…17h05m28s575`: pothole đúng; bỏ sót manhole nhỏ ở giữa đường.
 
 ### Câu 10 — E4: bạn đổi biến nào, kết quả thế nào, và kết luận có đáng tin không?
-<điền E4>
+Tôi đổi **đúng một biến**: `data_size`, tức tỉ lệ ảnh train. Mọi thứ khác giữ nguyên setup tốt nhất E3: LoRA LLM + ViT, mở projector, r = 16, lr 2e-4, 300 bước, seed 42.
+- Giá trị **1,0** chính là lần chạy E3 (1.422 ảnh), nên `e4_data_size_1.0.json` là bằng chứng của E3, chỉ đổi tên.
+- Giá trị **0,1** lấy ngẫu nhiên 142 ảnh (seed 42), chạy riêng.
+
+| data_size | Ảnh | F1 (CI95) | Precision | Recall | FP/ảnh | parse hợp lệ | Loss train cuối |
+|---|---|---|---|---|---|---|---|
+| 0,1 | 142 | 0,262 (0,232–0,299) | 0,231 | 0,304 | 1,90 | 0,987 | 0,007 |
+| 1,0 | 1.422 | 0,433 (0,393–0,480) | 0,474 | 0,400 | 0,83 | 1,000 | ≈ 0,45–0,6 |
+
+Giảm dữ liệu 10 lần làm F1 giảm 0,171. Hai CI tách xa nhau (0,299 < 0,393), nên **kết luận "nhiều dữ liệu hơn tốt hơn" đáng tin** dù test chỉ có 311 ảnh.
+
+Cơ chế thấy rõ trong log: cùng 300 bước × 8 ảnh = 2.400 lượt xem, với 142 ảnh là khoảng **17 epoch**. Loss train rơi từ 1,11 xuống **0,007**, tức model học thuộc từng box. Trên test, nó bịa nhiều box hơn: 767 box dự đoán so với 492 của E3, và FP/ảnh tăng từ 0,83 lên 1,90. Precision vì thế sụt mạnh nhất (0,474 → 0,231), còn recall giảm ít hơn (0,400 → 0,304). Manhole, lớp dễ nhất, giữ được tốt nhất (0,562 so với 0,688); crack giảm mạnh nhất (0,365 → 0,187).
+
+Đáng chú ý: E3 với 10% dữ liệu (0,262) ngang E1 với 100% dữ liệu (0,278), CI chồng nhau. Mở ViT không bù được việc thiếu dữ liệu.
+
+Giới hạn: chỉ có hai điểm dữ liệu và một seed, nên không vẽ được đường cong theo kích thước dữ liệu. Với 142 ảnh, nên giảm số bước hoặc dừng sớm theo val để tránh overfit; ở đây tôi giữ 300 bước để chỉ đổi đúng một biến.
 
 ## Nhìn lại
 
-<điền>
+- **Lỗi im lặng về lượng tử hoá.** Pseudo code dùng `llm_int8_skip_modules=["visual","lm_head"]`, nhưng transformers 5.19 so khớp bằng `re.match` từ đầu tên module, nên ViT và projector vẫn bị nén NF4. Không có lỗi hay cảnh báo nào; tôi chỉ phát hiện vì số tham số projector in ra là 54,6M thay vì 109,1M. Nếu không kiểm tra, E2/E3 sẽ "huấn luyện" trên các byte uint8 đóng gói. `check_submission.py` không bắt được lỗi này. Bài học: luôn in và đối chiếu số tham số với con số kỳ vọng.
+- **Môi trường Colab.** `torchao 0.10` cài sẵn làm `peft 0.21.2` báo lỗi ngay khi `get_peft_model`; lab không dùng torchao nên tôi gỡ đi. Tiến trình train chạy nền bằng `nohup` vẫn chết khi interrupt cell (SIGINT lan theo process group), làm tôi mất 190 bước E1 và phải chạy lại. Sau đó tôi dùng `setsid` hoặc `Popen(start_new_session=True)`.
+- **Chưa hiểu hết.** Tôi chưa tách được đóng góp riêng của LoRA ViT với projector (không có setup "LoRA ViT, đóng băng projector"). Tôi cũng chưa biết E3 hơn E2 bao nhiêu phần là do seed. Loss train dao động 0,45–0,65 giữa các bước, vì batch 8 ảnh có số box rất khác nhau, nên loss không phải thước đo tốt để so các setup.
+- **Giới hạn của chỉ số.** Với crack, F1@IoU0,5 phạt nặng box vẽ đúng vết nứt nhưng khác cách chia đoạn của người gán nhãn. Nhãn crack không nhất quán là trần thực sự của lớp này, mà `score.py` không phân biệt được với lỗi của model.
+- Không làm E5 (GRPO).
